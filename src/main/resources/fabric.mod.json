@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "heaven",
+  "version": "${version}",
+  "name": "Heaven",
+  "description": "Client-side automation and navigation assistant: /mine, /takeme, /find, auto food, boat and elytra assistance, mob defense and a status HUD.",
+  "authors": ["Heaven"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.heaven.HeavenClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
