@@ -1,28 +1,164 @@
-plugins {
-    id 'fabric-loom' version '1.13.4'
-    id 'maven-publish'
+/*
+ * This file is part of Baritone.
+ *
+ * Baritone is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Baritone is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: "xyz.wagyourtail.unimined"
+    apply plugin: "maven-publish"
+
+    base {
+        archivesName = rootProject.archives_base_name
+    }
+
+    def vers = ""
+    try {
+        vers = 'git describe --always --tags --first-parent --dirty'.execute().text.trim()
+    } catch (Exception e) {
+        println "Version detection failed: " + e
+    }
+    if (!vers.startsWith("v")) {
+        println "using version number: " + rootProject.mod_version
+        version = rootProject.mod_version
+    } else {
+        version = vers.substring(1)
+        println "Detected version " + version
+    }
+    group = rootProject.maven_group
+    
+    java {
+        sourceCompatibility = JavaVersion.toVersion(project.java_version)
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(sourceCompatibility.majorVersion.toInteger()))
+        }
+    }
+
+    repositories {
+        maven {
+            name = 'spongepowered-repo'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
+        }
+        maven {
+            name = 'fabric-maven'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'impactdevelopment-repo'
+            url = 'https://impactdevelopment.github.io/maven/'
+        }
+        maven {
+            name = "ldtteam"
+            url = "https://maven.parchmentmc.net/"
+        }
+        // for the newer version of launchwrapper
+        maven {
+            name = "multimc-maven"
+            url = "https://files.multimc.org/maven/"
+            metadataSources {
+                artifact()
+            }
+        }
+        mavenCentral()
+        maven {
+            name = 'babbaj-repo'
+            url = 'https://babbaj.github.io/maven/'
+        }
+    }
+
+    dependencies {
+        compileOnly "org.spongepowered:mixin:${project.mixin_version}"
+        compileOnly "org.ow2.asm:asm:${project.asm_version}"
+        // javax.annotation (@Nonnull/@Nullable) is no longer pulled in transitively by Minecraft
+        compileOnly "com.google.code.findbugs:jsr305:3.0.2"
+
+        implementation "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
+    }
+
+    unimined.minecraft(sourceSets.main, true) {
+        version rootProject.minecraft_version
+
+        mappings {
+            intermediary()
+            mojmap()
+            // TODO: re-enable Parchment once a 1.21.x build is confirmed available.
+            // The old "2023.06.26" build targets 1.20.1 and will not resolve for 1.21.11.
+            // parchment("1.21.x:<build>")
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        it.options.encoding = "UTF-8"
+        // Report the whole error list during the 1.21.11 migration instead of javac's default cap of 100.
+        it.options.compilerArgs += ["-Xmaxerrs", "2000"]
+
+        def targetVersion = project.java_version.toInteger()
+        if (JavaVersion.current().isJava9Compatible()) {
+            it.options.release = targetVersion
+        }
+    }
 }
 
-version = project.mod_version
-group = project.maven_group
-base { archivesName = project.archives_base_name }
+unimined.minecraft {
+    runs.off = true
+    defaultRemapJar = false
+}
 
-repositories {
-    maven { url = 'https://maven.fabricmc.net/' }
-    mavenCentral()
+base {
+    archivesName = archivesName.get() + "-common"
+}
+
+sourceSets {
+    api {
+        compileClasspath += main.compileClasspath
+        runtimeClasspath += main.runtimeClasspath
+    }
+    main {
+        compileClasspath += api.output
+        runtimeClasspath += api.output
+    }
+    test {
+        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output
+        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output
+    }
+    launch {
+        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output
+        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output
+    }
+    schematica_api {
+        compileClasspath += main.compileClasspath
+        runtimeClasspath += main.runtimeClasspath
+    }
+    main {
+        compileClasspath += schematica_api.output
+        runtimeClasspath += schematica_api.output
+    }
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    testImplementation 'junit:junit:4.13.2'
 }
 
-processResources {
-    inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') { expand version: inputs.properties.version }
+jar {
+    from sourceSets.main.output, sourceSets.launch.output, sourceSets.api.output
 }
 
-tasks.withType(JavaCompile).configureEach { options.release = 21 }
-java { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21; withSourcesJar() }
+javadoc {
+    options.addStringOption('Xwerror', '-quiet') // makes the build fail on travis when there is a javadoc error
+    options.linkSource true
+    options.encoding "UTF-8" // allow emoji in comments :^)
+    source = sourceSets.api.allJava
+    classpath += sourceSets.api.compileClasspath
+}
