@@ -1,15 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "heaven",
+  "id": "modswitcher",
   "version": "${version}",
-  "name": "Heaven",
-  "description": "Baritone-style fair-play automation assistant for Fabric 1.21.11.",
-  "authors": ["Heaven"],
+  "name": "Mod Switcher",
+  "description": "Adds a Mod Switcher button to the title and pause menus. Browse loaded mods page by page and queue mods to be disabled or re-enabled on the next launch.",
+  "authors": ["Mod Switcher"],
+  "license": "MIT",
   "environment": "client",
-  "entrypoints": { "client": ["com.heavenmod.HeavenClient"] },
+  "entrypoints": {
+    "client": ["com.modswitcher.ModSwitcherClient"]
+  },
   "depends": {
-    "fabricloader": ">=0.19.5",
+    "fabricloader": ">=0.16.0",
     "minecraft": "~1.21.11",
+    "java": ">=21",
     "fabric-api": "*"
   }
 }
